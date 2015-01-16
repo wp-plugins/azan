@@ -4,7 +4,7 @@ Plugin Name: azan
 Plugin URI : http://wp-master.ir
 Author: wp-master.ir
 Author URI: http://wp-master.ir
-Version: 0.2
+Version: 0.4
 url:http://wp-master.ir
 */
 defined( 'ABSPATH' ) OR die();
