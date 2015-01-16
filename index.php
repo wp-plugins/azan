@@ -1,19 +1,30 @@
 <?php
 /*
-Plugin Name: اذان
+Plugin Name: azan
 Plugin URI : http://wp-master.ir
 Author: wp-master.ir
 Author URI: http://wp-master.ir
 Version: 0.2
 url:http://wp-master.ir
 */
+defined( 'ABSPATH' ) OR die();
+define('azan_dir' 					, dirname( __FILE__ ).DIRECTORY_SEPARATOR);
+define('azan_path' 				, plugin_dir_url( __FILE__ ));
+/*
+* load plugin language
+*/
+add_action( 'plugins_loaded', '_azan_widget_lang');
+function _azan_widget_lang()
+{
+	load_plugin_textdomain( 'azan', false, dirname( plugin_basename( __FILE__ ) ).DIRECTORY_SEPARATOR);
+}
 
 class widget_azan extends WP_Widget
 {
   function widget_azan()
   {
-    $widget_ops = array('classname' => 'widget_azan', 'description' => 'نمایش اوقات شرعی' );
-    $this->WP_Widget('widget_azan', 'نمایش اوقات شرعی', $widget_ops);
+    $widget_ops = array('classname' => 'widget_azan', 'description' => __('azan' , 'azan') );
+    $this->WP_Widget('widget_azan', __('azan' , 'azan'), $widget_ops);
   }
  
   function form($instance)
@@ -61,6 +72,21 @@ class widget_azan extends WP_Widget
 					<option <?php if($city ==28 ) { echo ' selected="selected" ';} ?>value="28">همدان</option>
 					<option <?php if($city == 29) { echo ' selected="selected" ';} ?>value="29">یاسوج</option>
 					<option <?php if($city ==30 ) { echo ' selected="selected" ';} ?>value="30">یزد</option>
+					<?php
+					$azan_opt = get_option('azan_opt' );
+					$azan_opt_c = explode("\n", $azan_opt['azan_custom_cities']);
+					$azan_counter = 30;
+					foreach ($azan_opt_c as $value) {
+						if(empty($value)) continue;
+						$value_ = explode(",", $value);
+						if(!isset($value_[0]) || !isset($value_[1]) || !isset($value_[2]) ) continue;
+						$azan_counter++;
+						$selected = '';
+						if($city == $azan_counter) { $selected = 'selected="selected"'; }
+						echo  '<option value="'.$azan_counter.'" '.$selected.'>'.$value_[0].'</option>';
+					}
+
+					?>
 
 	  </select></label></p>
 	<?php
@@ -86,7 +112,7 @@ class widget_azan extends WP_Widget
 	?>
 	<p align="right">
 	<font size="2" face="Tahoma">
-		<script type='text/javascript' src='<?php echo get_option('siteurl'). '/wp-content/plugins/azan/'; ?>azan-js.php'></script>
+		<script type='text/javascript' src='<?php echo azan_path; ?>azan-js.php'></script>
 	<?php
 
 
@@ -121,5 +147,71 @@ function azan_add_plugin_js_url_var()
 {
 	?>
 	<script type="text/javascript"> var azan_plugin_url = '<?php echo get_bloginfo('wpurl').'/wp-content/plugins/azan/'; ?>';</script>
+	<?php
+}
+
+
+/**
+* admin menu
+*/
+add_action( 'admin_menu', '_azan_menu');
+function _azan_menu(){
+	add_options_page( __('azan','azan'), __('azan','azan'), 'manage_options', 'azan', 'azan_menu' );
+}
+function azan_menu(){
+	?>
+    <script src="http://api.mygeoposition.com/api/geopicker/api.js" type="text/javascript"></script>
+    
+    <script type="text/javascript">
+        function lookupGeoData() {            
+            myGeoPositionGeoPicker({
+                startAddress     : 'Mashhad, Khorasan Razavi, Iran',
+                returnFieldMap   : {
+                                     'geoposition1a' : '<LAT>',
+                                     'geoposition1b' : '<LNG>',
+                                     'geoposition1c' : '<CITY>',   /* ...or <COUNTRY>, <STATE>, <DISTRICT>,
+                                                                           <CITY>, <SUBURB>, <ZIP>, <STREET>, <STREETNUMBER> */
+                                     'geoposition1d' : '<ADDRESS>'
+                                   }
+            });
+        }
+    </script>
+    <div class="updated settings-error"><p><strong>
+		 <?php _e('Select your city and add it to list,so you can choose it inside widget(first hit picker and then search your city,then click return data button)' ,'azan');?>
+	</strong></p></div>
+	<?php
+	if(isset($_POST['azan_custom_cities'])){
+		$cts = esc_html($_POST['azan_custom_cities']);
+		$arr = array();
+		if(isset($_POST['azan-lat'] , $_POST['azan-lng'] , $_POST['azan-city']) && $_POST['azan-city'] !='' && $_POST['azan-lat']!='' && $_POST['azan-lng'] !=''){
+			$_POST['azan_custom_cities'] .= "\n".$_POST['azan-city'].','.$_POST['azan-lat'].','.$_POST['azan-lng'];
+		}
+		foreach($_POST as $key => $val){
+			if(strpos($key , 'azan_') !== false)
+				$arr[$key] = $val;
+		}
+		if(update_option( 'azan_opt', $arr )){
+			file_put_contents(azan_dir.'cities.dat', serialize($_POST['azan_custom_cities']));
+			echo   
+			'<div class="updated settings-error"><p><strong>
+			'.__('Saved' , 'azan').'
+			</strong></p></div>';
+		}
+	}
+	$azan_opt = get_option('azan_opt');
+	?>
+    <?php _e('Geo-Coordinates' ,'azan');?>:
+     <form method="post">
+    <?php _e('Latitude' , 'azan'); ?>:<input name="azan-lat" id="geoposition1a" size="20" type="text">
+    <?php _e('Longitude' , 'azan'); ?>:<input name="azan-lng" id="geoposition1b" size="20" type="text">
+    <input name="azan-city" id="geoposition1c" size="20" type="text">
+    <!-- <input name="geoposition1d" id="geoposition1d" size="70" type="text"> -->
+    <button type="button" class="button-primary" onclick="lookupGeoData();">1:<?php _e('GeoPicker' ,'azan'); ?></button>
+	<input type="submit" class="button-primary" id="azan-add-me-to-list" value="2:<?php _e('save' , 'azan'); ?>">
+	<br>
+	<textarea style="width: 636px; height: 78px; background: none repeat scroll 0% 0% rgb(34, 34, 34); color: rgb(204, 204, 204); font-family: Lucida Console; direction: ltr ! important; text-align: left;" name="azan_custom_cities"><?php echo $azan_opt['azan_custom_cities']; ?></textarea>
+    </form>
+    
+    <hr>
 	<?php
 }
